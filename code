@@ -1,0 +1,120 @@
+let src; // 이미지를 저장할 변수
+let dst; // 변형된 이미지를 저장할 변수
+let dsize;
+let center;
+let M;
+let startX, startY; // 드래그 시작 위치
+let endX, endY; // 드래그 끝 위치
+let isDragging = false; // 드래그 중인지 여부를 나타내는 플래그
+
+function preload() {
+  // 이미지를 preload() 함수를 사용하여 불러옵니다.
+  src = loadImage('https://raw.githubusercontent.com/choheonrae/D-img/main/doc1.jpg');
+}
+
+function setup() {
+  createCanvas(800, 800);
+
+  // 이미지 로드가 완료되면 실행
+  dst = createImage(src.width, src.height);
+  dsize = new p5.Vector(src.width, src.height);
+  center = new p5.Vector(src.width / 2, src.height / 2);
+
+  // 회전 매트릭스 계산
+  M = getRotationMatrix(center, radians(-21), 1);
+
+  // 이미지 변형
+  warpAffine(src, dst, M);
+
+  // 이미지 표시
+  image(dst, 0, 0, width, height);
+}
+
+function draw() {
+  if (isDragging) {
+    // 드래그 중일 때만 실행됩니다.
+    // background(255); // 이 부분을 주석 처리하여 이미지를 지우지 않습니다.
+    image(dst, 0, 0, width, height);
+
+    // 드래그 영역을 직사각형으로 그립니다.
+    let minX = min(startX, endX);
+    let minY = min(startY, endY);
+    let maxX = max(startX, endX);
+    let maxY = max(startY, endY);
+
+    noFill();
+    stroke(0);
+    strokeWeight(2);
+    rect(minX, minY, maxX - minX, maxY - minY);
+
+    // 드래그 영역을 제외한 부분을 흰색으로 덮습니다.
+    loadPixels();
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        if (x < minX || x > maxX || y < minY || y > maxY) {
+          // 드래그 영역 외의 부분을 흰색으로 설정합니다.
+          let pixelIndex = (x + y * width) * 4;
+          pixels[pixelIndex] = 255; // 빨간 채널
+          pixels[pixelIndex + 1] = 255; // 녹색 채널
+          pixels[pixelIndex + 2] = 255; // 파란 채널
+        }
+      }
+    }
+    updatePixels();
+  }
+}
+
+function mousePressed() {
+  startX = mouseX;
+  startY = mouseY;
+  endX = mouseX; // 초기에는 드래그 영역의 시작과 끝이 같습니다.
+  endY = mouseY;
+  isDragging = true;
+}
+
+function mouseDragged() {
+  endX = mouseX; // 마우스가 드래그될 때마다 끝 위치를 업데이트합니다.
+  endY = mouseY;
+}
+
+function mouseReleased() {
+  isDragging = false;
+}
+
+function getRotationMatrix(center, angle, scale) {
+  let cosA = cos(angle) * scale;
+  let sinA = sin(angle) * scale;
+  let x = center.x;
+  let y = center.y;
+
+  let matrix = [
+    [cosA, -sinA, (1 - cosA) * x + sinA * y],
+    [sinA, cosA, -sinA * x + (1 - cosA) * y]
+  ];
+
+  return matrix;
+}
+
+function warpAffine(srcImg, dstImg, M) {
+  dstImg.loadPixels();
+  srcImg.loadPixels();
+
+  for (let dstY = 0; dstY < dstImg.height; dstY++) {
+    for (let dstX = 0; dstX < dstImg.width; dstX++) {
+      let srcX = M[0][0] * dstX + M[0][1] * dstY + M[0][2];
+      let srcY = M[1][0] * dstX + M[1][1] * dstY + M[1][2];
+
+      srcX = constrain(srcX, 0, srcImg.width - 1);
+      srcY = constrain(srcY, 0, srcImg.height - 1);
+
+      let indexSrc = floor(srcY) * srcImg.width * 4 + floor(srcX) * 4;
+      let indexDst = dstY * dstImg.width * 4 + dstX * 4;
+
+      for (let i = 0; i < 4; i++) {
+        dstImg.pixels[indexDst + i] = srcImg.pixels[indexSrc + i];
+      }
+    }
+  }
+
+  dstImg.updatePixels();
+}
